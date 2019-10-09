@@ -1,41 +1,37 @@
-var createError = require('http-errors');
 var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
-
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
-
 var app = express();
+var http = require('http').Server(app);
+var io = require('socket.io')(http);
+var osm = require("os-monitor");
+require('loadavg-windows');
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
 
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+http.listen(3000, () => {
+    console.log("Server running");
+}); 
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
-
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
+io.on('connect', function (socket) {
+    socket.emit('connected', {
+        status: 'connected',
+        type: osm.os.type(), 
+        cpus: osm.os.cpus(),
+    });
 });
-
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
+ 
+io.on('disconnect', function (socket) {
+    socket.emit('disconnected');
 });
-
-module.exports = app;
+ 
+ 
+osm.start({
+    delay: 3000 // interval in ms between monitor cycles
+    , stream: false // set true to enable the monitor as a Readable Stream
+    , immediate: false // set true to execute a monitor cycle at start()
+}).pipe(process.stdout);
+ 
+ 
+// define handler that will always fire every cycle
+osm.on('monitor', function (monitorEvent) {
+    io.emit('os-update', monitorEvent);
+    //console.log(monitorEvent);
+});
