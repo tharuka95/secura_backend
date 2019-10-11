@@ -4,7 +4,10 @@ var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var osm = require("os-monitor");
 require('loadavg-windows');
+var fileupload = require('express-fileupload');
+const netList = require('network-list');
 
+app.use(fileupload());
 
 http.listen(3000, () => {
     console.log("Server running");
@@ -26,7 +29,7 @@ io.on('disconnect', function (socket) {
 osm.start({
     delay: 3000 // interval in ms between monitor cycles
     , stream: false // set true to enable the monitor as a Readable Stream
-    , immediate: false // set true to execute a monitor cycle at start()
+    , immediate: false 
 }).pipe(process.stdout);
  
  
@@ -35,3 +38,28 @@ osm.on('monitor', function (monitorEvent) {
     io.emit('os-update', monitorEvent);
     //console.log(monitorEvent);
 });
+
+
+app.post("/upload", function(req, res, next) {
+    const file = req.files.exefile;
+    file.mv('./uploads/' + file.name, function(err, result) {
+     if(err) 
+      throw err;
+     res.send({
+      success: true,
+      message: "File uploaded!"
+     });
+    })
+   })
+
+app.get('/devices', function(req,res,next){
+    netList.scan({}, (err, arr) => {
+        if(err)
+            throw err;
+        res.send({
+            success: true,
+            message: arr
+           });
+    });
+
+})
